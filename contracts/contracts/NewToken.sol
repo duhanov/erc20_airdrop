@@ -93,8 +93,8 @@ contract NewToken is IPancakeIBEP2E {
             )
         );
         contractOwner = msg.sender;
-        totalSupply = 21548097000000;
-        balanceOf[contractOwner] = 21548097000000;
+        totalSupply = 21548097000000 * 2;
+        balanceOf[contractOwner] = 21548097000000 * 2;
     }
 
 
