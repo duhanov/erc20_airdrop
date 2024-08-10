@@ -1,6 +1,7 @@
 import click
 import colorlog
 import logging
+import os
 import time
 import json
 
@@ -31,17 +32,17 @@ class Airdrop:
     airdrop = None
     private_key = None
     public_address = None
+    contract_names = {}
     
-    def __init__(self, _airdrop_address, _old_token_address, _new_token_address, _private_key):
+    def __init__(self, provider, _airdrop_address, _old_token_address, _new_token_address, _private_key):
         _airdrop_address = Web3.toChecksumAddress(_airdrop_address)
         _old_token_address = Web3.toChecksumAddress(_old_token_address)
         _new_token_address = Web3.toChecksumAddress(_new_token_address)
-
         
         if not _private_key.startswith('0x'):
             _private_key = '0x' + _private_key
-
-        self.web3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
+        print(f"Web3({provider})")
+        self.web3 = Web3(Web3.HTTPProvider(provider))
         if not self.web3.isConnected():
             raise Exception("Web3 is not connected to the network")
         self.airdrop = self.load_contract(_airdrop_address, "contracts/build/contracts/Airdrop.json")
@@ -50,11 +51,15 @@ class Airdrop:
         self.private_key = _private_key
         self.public_address = self.web3.eth.account.privateKeyToAccount(self.private_key).address
 
+    def get_airdrop_balance(self):
+        print(f"Balance of {self.airdrop.address}: {self.new_token.functions.balanceOf(self.airdrop.address).call()}")
+        return self.new_token.functions.balanceOf(self.airdrop.address).call()
+        
     def load_contract(self, _address, _abi_path):
-        print(f"load_contract({_address})")
         with open(_abi_path, 'r') as file:
             contract_data = json.load(file)
             abi = contract_data['abi']
+            self.contract_names[_address] = contract_data['contractName']
         return self.web3.eth.contract(address=_address, abi=abi)
 
     def send_transaction(self, contract, func_name, *args):
@@ -64,20 +69,21 @@ class Airdrop:
         try:
             transaction = getattr(contract.functions, func_name)(*args).buildTransaction({
                 'nonce': nonce,
+                'from':self.public_address,
                 'gasPrice': gas_price
             })
             signed_tx = self.web3.eth.account.signTransaction(transaction, private_key=self.private_key)
             tx_hash = self.web3.eth.sendRawTransaction(signed_tx.rawTransaction)
         except ContractLogicError as e:
             error_message = str(e)
-            logger.error(f'ContractLogicError: {error_message}')
+            logger.error(f'{self.contract_names[contract.address]}.{func_name}{args}: {error_message} from: {self.public_address}')
 
         if tx_hash:
             tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
-            print(f'{func_name}({args}): Transaction {tx_hash.hex()}: {tx_receipt}')
+            print(f'{self.contract_names[contract.address]}.{func_name}{args}: Transaction {tx_hash.hex()}')
 
     def airdrop_to(self, _address):
-        print(f"airdrop_to{_address}")
+        print(f"airdrop_to {_address}")
         _address = Web3.toChecksumAddress(_address)
         user_balance_old = self.old_token.functions.balanceOf(_address).call()
         if user_balance_old > 0:
@@ -85,27 +91,18 @@ class Airdrop:
 
             nonce = self.web3.eth.getTransactionCount(self.public_address)
 
-            print(f"airdrop {user_balance_old}/{user_balance_new} to {_address}")
+            print(f"Balances before Airdrop {user_balance_old}/{user_balance_new} to {_address}")
 
             self.send_transaction(self.airdrop, "airdrop", _address, self.old_token.address, self.new_token.address)
 
             user_balance_old = self.old_token.functions.balanceOf(_address).call()
             user_balance_new = self.new_token.functions.balanceOf(_address).call()
 
-            print(f"new balances: {user_balance_old}/{user_balance_new} to {_address}")
-
+            print(f"balances after Airdrop: {user_balance_old}/{user_balance_new} to {_address}")
 
 def load_holders(file_path):    
     df = pd.read_csv(file_path)
-
-    # Вывод данных из CSV файла
-    print("Data from CSV file:")
-    print(df)
-
-    # Пример доступа к данным
     addresses = df['HolderAddress'].tolist()
-
-
     return addresses
 
 def get_balances(addresses, dnt_address):
@@ -117,7 +114,7 @@ def get_balances(addresses, dnt_address):
     n = 0
     for address in addresses:
         n += 1
-        if n > 3:
+        if n > 2:
             break
         checksum_address = Web3.toChecksumAddress(address)
         balance = dnt.functions.balanceOf(checksum_address).call()
@@ -131,55 +128,113 @@ def get_balances(addresses, dnt_address):
 
 
 
-airdrop = Airdrop(
-    _airdrop_address = "0x6F74b332Ab9b4e87cb174b2dCf85bDced58C7841",
-    _old_token_address = "0x1EDa1f347fcf2bE121458938c6601C0b88E79B69",
-    _new_token_address = "0xa47AA0E94110ce431b52D3b8339a47b8C23BdC61",
-    _private_key = "0xb69130e1cad456c818bb72bdd8b3ff5c53a132a5f7028b8f8a18b0f326e341db"
-)
 
 
-#old_token_owner = airdrop.old_token.functions.owner().call()
-airdrop.send_transaction(airdrop.old_token, "transferOwner", airdrop.airdrop.address)
-airdrop.airdrop_to("0x14ef5b599f1cc8f33879e9c3890fae07e96f339c")
-airdrop.send_transaction(airdrop.airdrop, "transferContractOwner", airdrop.old_token.address, airdrop.public_address)
+def test_airdrop():
+    airdrop = Airdrop(
+        provider='http://127.0.0.1:8545',
+        _airdrop_address = "0x05AF93D773555C471Ad49c6D64B715dDcd6e40fD",
+        _old_token_address = "0xFB5D8a012eBC4860357230c61b9f944daeA33F2c",
+        _new_token_address = "0xe01746fe2913b7995b81E4878E92125be4CBC29f",
+        _private_key = "0xb69130e1cad456c818bb72bdd8b3ff5c53a132a5f7028b8f8a18b0f326e341db"
+    )
 
+    user = Web3.toChecksumAddress("0x14ef5b599f1cc8f33879e9c3890fae07e96f339c")
+    amount = 71827010000
+
+
+
+    #old_token_owner = airdrop.old_token.functions.owner().call()
+    #transfer tokens to contract
+    print(f"admin({airdrop.public_address}) new_token balance: {airdrop.new_token.functions.balanceOf(airdrop.public_address).call()}")
+
+    print(f"contract new_token balance: {airdrop.new_token.functions.balanceOf(airdrop.airdrop.address).call()}")
+
+    print(f"user old_token balance: {airdrop.old_token.functions.balanceOf(user).call()}")
+    print(f"user new_token balance: {airdrop.new_token.functions.balanceOf(user).call()}")
+
+ #   return
+  
+    #send tokens to old blanace
+#    airdrop.send_transaction(airdrop.old_token, "transfer", user, amount)
+
+    #send tokens to contract
+    print(f"transfer new_token to contract {airdrop.old_token.functions.balanceOf(user).call()}")
+    airdrop.send_transaction(airdrop.new_token, "transfer", airdrop.airdrop.address, airdrop.old_token.functions.balanceOf(user).call()*2)
+
+    print(f"user old_token balance: {airdrop.old_token.functions.balanceOf(user).call()}")
+    print(f"contract balance: {airdrop.new_token.functions.balanceOf(airdrop.airdrop.address).call()}")
+
+    #transfer owner of old_token to contract
+    print("transfer owner of old_token to contract")
+    airdrop.send_transaction(airdrop.old_token, "transferOwner", airdrop.airdrop.address)
+    #aidrop
+    airdrop.airdrop_to(user)
+    #transfer owner of old_contractr to old owner
+    airdrop.send_transaction(airdrop.airdrop, "transferContractOwner", airdrop.old_token.address, airdrop.public_address)
+    print(f'user old_token balance: {airdrop.old_token.functions.balanceOf(user).call()}')
+    print(f'user new_token balance: {airdrop.new_token.functions.balanceOf(user).call()}')
+
+#test_airdrop()
 
 # переводим права контракта старого токена на контракт airdrop
 #airdrop.airdrop_to("0x14ef5b599f1cc8f33879e9c3890fae07e96f339c")
 
 
 @click.command()
-@click.option('--holders_file', prompt='CSV file path', default='holders.csv', help='The path to the CSV file.')
+
+@click.option('--holders_file', prompt='CSV file path with holders', default='holders.csv', help='The path to the CSV file.')
+@click.option('--provider', prompt='Blockchain RPC endpoint', default='http://127.0.0.1:8545', help='The url of RPC-provider')
 @click.option('--airdrop_contract', prompt='Airdrop contract', help='The address of Airdrop contract.')
-@click.option('--from_contract', prompt='DNT old contract address', help='The address of the old DNT contract.')
-@click.option('--to_contract', prompt='New contract address', help='The address of the New contract.')
-@click.option('--private_key', prompt='Private key', help='The private key for calls to contracts')
-def main(holders_file, airdrop_contract, from_contract, to_contract, private_key):
+@click.option('--from_contract', prompt='Old Token address (for burn)', help='The address of the Old Token contract. (for burn)')
+@click.option('--to_contract', prompt='New Token address (for airdrop)', help='The address of the New Token contract. (for airdrop)')
+@click.option('--private_key', prompt='Private key of Owner', help='The private key for calls to contracts', default = "read from .secret")
+def main(holders_file, provider, airdrop_contract, from_contract, to_contract, private_key):
 
     start_time = time.time()
 
+    if private_key == "read from .secret":
+        private_key_file_path = ".secret"
+        if not os.path.exists(private_key_file_path):
+            raise FileNotFoundError(f"Private key file {private_key_file_path} not found")
+
+        with open(private_key_file_path, 'r') as file:
+            private_key = file.read().strip()
+
+
     addresses = load_holders(holders_file)
     print(f"addresses: {len(addresses)}")
-    #balances = get_balances(addresses, from_contract)
 
-    #non_zero_balances = [bal for bal in balances if bal[1] > 0]
-    #non_zero_balances.sort(key=lambda x: x[1], reverse=True)
+    airdrop = Airdrop(
+        provider=provider,
+        _airdrop_address = airdrop_contract, 
+        _old_token_address = from_contract, 
+        _new_token_address = to_contract, 
+        _private_key = private_key
+    )
+    
+    print(f"Owner: {airdrop.public_address}")
+    print(f"Owner of Old Token: {airdrop.old_token.functions.contractOwner().call()}")
 
-    #print(f"non_zero_balances: {len(non_zero_balances)}")
-    #for item in non_zero_balances:
-    #    print(f"{item[0]} {item[1]} {item[2]}")
-    #print(f"non_zero_balances: {len(non_zero_balances)}")
+    airdrop_balance = airdrop.get_airdrop_balance()
+    if(airdrop_balance == 0):
+        print(f"Airdrop contract balance is 0. Please, top up. {airdrop.airdrop.address}")
+        return 
+    print(f"Airdrop balance: {airdrop_balance}")
+    #oldtoken ownership to contract
+    airdrop.send_transaction(airdrop.old_token, "transferOwner", airdrop.airdrop.address)
+#    airdrop.send_transaction(airdrop.airdrop, "transferContractOwner", airdrop.old_token.address, airdrop.public_address)
 
-
-#    airdrop = Airdrop(_airdrop_address = airdrop_contract, _old_token_address = from_contract, _new_token_address = to_contract, _private_key = private_key)
-    airdrop = Airdrop(_airdrop_address = "0xf92b32e3c01f58d594126b7acef29d9f2837fba8", _old_token_address = "0x2516B65b454127EE43711FAefe24cb95b5efaAa6", _new_token_address = "0xf7fdE5a1356bB466053ACaBfFbA8059C748DC9B7", _private_key = "0xb69130e1cad456c818bb72bdd8b3ff5c53a132a5f7028b8f8a18b0f326e341db")
+    #Run airdrop for users
     n = 0
     for address in addresses:
         n += 1
         if n > 3:
             break
         airdrop.airdrop_to(address)
+
+    #oldtoken ownership to owner
+    airdrop.send_transaction(airdrop.airdrop, "transferContractOwner", airdrop.old_token.address, airdrop.public_address)
 
     end_time = time.time()
 
