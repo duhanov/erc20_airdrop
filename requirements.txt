@@ -1,0 +1,4 @@
+click==8.1.7
+colorlog==6.8.2
+web3==5.30.0
+pandas==2.2.2
