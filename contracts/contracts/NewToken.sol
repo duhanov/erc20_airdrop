@@ -64,8 +64,8 @@ contract NewToken is IPancakeIBEP2E {
     }
 
 
-    string public constant name = 'Definder network token';
-    string public constant symbol = 'DNT';
+    string public constant name = 'Definder token';
+    string public constant symbol = 'DFIND';
     uint8 public constant decimals = 6;
     uint  public totalSupply;
     mapping(address => uint) public balanceOf;
@@ -93,8 +93,8 @@ contract NewToken is IPancakeIBEP2E {
             )
         );
         contractOwner = msg.sender;
-        totalSupply = 21548097000000 * 2;
-        balanceOf[contractOwner] = 21548097000000 * 2;
+        totalSupply = 210000000000000;
+        balanceOf[contractOwner] = 210000000000000;
     }
 
 
