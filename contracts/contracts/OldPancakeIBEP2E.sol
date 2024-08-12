@@ -4,17 +4,16 @@
 
 pragma solidity =0.5.16;
 
-import "./Interfaces.sol";
-import "./SafeMath.sol"; 
 
 
-contract NewToken is IPancakeIBEP2E {
+import "./PancakeIBEP2E.sol"; 
+
+contract OldPancakeIBEP2E is IPancakeIBEP2E {
     using SafeMath for uint;
 
 
-
     // @notice Developer address
-    address  private contractOwner;
+    address private contractOwner;
     // @dev Emitted when the Owner changes
     event OwnerTransferredEvent(address indexed previousOwner, address indexed newOwner);
 
@@ -64,8 +63,8 @@ contract NewToken is IPancakeIBEP2E {
     }
 
 
-    string public constant name = 'Definder token';
-    string public constant symbol = 'DFIND';
+    string public constant name = 'Definder network token';
+    string public constant symbol = 'DNT';
     uint8 public constant decimals = 6;
     uint  public totalSupply;
     mapping(address => uint) public balanceOf;
@@ -93,8 +92,8 @@ contract NewToken is IPancakeIBEP2E {
             )
         );
         contractOwner = msg.sender;
-        totalSupply = 210000000000000;
-        balanceOf[contractOwner] = 210000000000000;
+        totalSupply = 21548097000000;
+        balanceOf[contractOwner] = 21548097000000;
     }
 
 
