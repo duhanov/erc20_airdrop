@@ -1,18 +1,23 @@
-const OldToken = artifacts.require("PancakeIBEP2E");
-const NewToken = artifacts.require("NewToken");
+const fs = require("fs");
+const path = require("path");
+
+const OldToken = artifacts.require("OldPancakeIBEP2E");
+const NewToken = artifacts.require("PancakeIBEP2E");
 const Airdrop = artifacts.require("Airdrop");
 
 module.exports = async function (deployer, network, accounts) {
+  let envs = {};
+
   // Контракт аирдропа
   await deployer.deploy(Airdrop);
   const airdrop = await Airdrop.deployed();
   console.log(`Airdrop contract deployed at address: ${airdrop.address}`);
-
+  envs["AIRDROP_CONTRACT"] = airdrop.address;
   // новый контракт
   await deployer.deploy(NewToken);
   const new_token = await NewToken.deployed();
   console.log(`NewToken contract deployed at address: ${new_token.address}`);
-
+  envs["NEW_TOKEN_CONTRACT"] = new_token.address;
   // тестовый контракт DNT
   if (
     network === "dev" ||
@@ -23,6 +28,7 @@ module.exports = async function (deployer, network, accounts) {
     await deployer.deploy(OldToken);
     const old_token = await OldToken.deployed();
     console.log(`OldToken contract deployed at address: ${old_token.address}`);
+    envs["OLD_TOKEN_CONTRACT"] = old_token.address;
     // Предустанавливаем балансы на старом контракте в тестовой сети для тестирования эйрдропа
     console.log("Create balances");
 
@@ -63,4 +69,12 @@ module.exports = async function (deployer, network, accounts) {
       (await new_token.balanceOf(airdrop.address)) / 1
     );
   }
+
+  const envFilePath = path.resolve(__dirname, "../../.env");
+  console.log("save ", envFilePath);
+  const envContent = Object.entries(envs)
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+
+  fs.writeFileSync(envFilePath, envContent);
 };

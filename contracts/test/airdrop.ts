@@ -6,8 +6,8 @@ const Web3 = require("web3");
 //const { expect } = require("chai");
 //const { ethers } = require("hardhat");
 
-const OldToken = artifacts.require("PancakeIBEP2E");
-const NewToken = artifacts.require("NewToken");
+const OldToken = artifacts.require("OldPancakeIBEP2E");
+const NewToken = artifacts.require("PancakeIBEP2E");
 const Airdrop = artifacts.require("Airdrop");
 
 contract("Test Airdrop", function (accounts) {
