@@ -29,6 +29,9 @@ logger.setLevel(logging.DEBUG)
 
 
 def read_env_file(file_path):
+    if not os.path.exists(file_path):
+        return {}
+    
     env_dict = {}
     with open(file_path, 'r') as file:
         for line in file:
