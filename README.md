@@ -1,6 +1,18 @@
 # Install
 
 ```
+brew install nvm
+```
+
+```
+nvm install 16
+```
+
+```
+npm i -g truffle
+```
+
+```
 brew install --cask miniconda
 ```
 
