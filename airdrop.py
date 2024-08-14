@@ -52,6 +52,7 @@ class Airdrop:
     private_key = None
     public_address = None
     contract_names = {}
+    nonce = None
     
     def __init__(self, provider, _airdrop_address, _old_token_address, _new_token_address, _private_key):
         _airdrop_address = Web3.toChecksumAddress(_airdrop_address)
@@ -82,8 +83,13 @@ class Airdrop:
         return self.web3.eth.contract(address=_address, abi=abi)
 
     def send_transaction(self, contract, func_name, *args):
+        if self.nonce is None:
+            self.nonce = self.web3.eth.getTransactionCount(self.public_address)           
+        else:
+            self.nonce += 1
 
-        nonce = self.web3.eth.getTransactionCount(self.public_address)
+        nonce = self.nonce
+        
         tx_hash = None
         gas_price = self.web3.eth.gas_price
         try:
