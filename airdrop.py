@@ -85,8 +85,6 @@ class Airdrop:
     def send_transaction(self, contract, func_name, *args):
         if self.nonce is None:
             self.nonce = self.web3.eth.getTransactionCount(self.public_address)           
-        else:
-            self.nonce += 1
 
         nonce = self.nonce
         
@@ -100,6 +98,8 @@ class Airdrop:
             })
             signed_tx = self.web3.eth.account.signTransaction(transaction, private_key=self.private_key)
             tx_hash = self.web3.eth.sendRawTransaction(signed_tx.rawTransaction)
+            self.nonce += 1
+
         except ContractLogicError as e:
             error_message = str(e)
             logger.error(f'{self.contract_names[contract.address]}.{func_name}{args}: {error_message} from: {self.public_address}')
