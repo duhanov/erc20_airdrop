@@ -10,6 +10,7 @@ from web3 import Web3
 from web3.exceptions import ContractLogicError
 
 import pandas as pd
+import traceback
 
 
 handler = colorlog.StreamHandler()
@@ -156,6 +157,7 @@ def retry_function_with_exceptions(func, *args, **kwargs):
             pass  # Игнорируем HTTP ошибки и продолжаем цикл
         except Exception as err:
             print(f"ERROR: {err}")
+            print(traceback.format_exc())
         print(".", end="", flush=True)
         time.sleep(1)  # Пауза перед повторной попыткой
 
