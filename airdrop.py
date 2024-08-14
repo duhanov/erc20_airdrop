@@ -107,7 +107,7 @@ class Airdrop:
             logger.error(f'{self.contract_names[contract.address]}.{func_name}{args}: {error_message} from: {self.public_address}')
 
         if tx_hash:
-            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash, {'timeout': 240000})
+            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
             #print(f'{self.contract_names[contract.address]}.{func_name}{args}: Transaction {tx_hash.hex()}')
             return tx_hash
         return None
