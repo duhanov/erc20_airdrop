@@ -4,6 +4,7 @@ import logging
 import os
 import time
 import json
+from requests.exceptions import ConnectionError, HTTPError
 
 from web3 import Web3
 from web3.exceptions import ContractLogicError
@@ -81,6 +82,7 @@ class Airdrop:
         return self.web3.eth.contract(address=_address, abi=abi)
 
     def send_transaction(self, contract, func_name, *args):
+
         nonce = self.web3.eth.getTransactionCount(self.public_address)
         tx_hash = None
         gas_price = self.web3.eth.gas_price
@@ -132,60 +134,24 @@ def load_holders(file_path):
     return addresses
 
 
-
-
-
-def test_airdrop():
-    airdrop = Airdrop(
-        provider='http://127.0.0.1:8545',
-        _airdrop_address = "0x05AF93D773555C471Ad49c6D64B715dDcd6e40fD",
-        _old_token_address = "0xFB5D8a012eBC4860357230c61b9f944daeA33F2c",
-        _new_token_address = "0xe01746fe2913b7995b81E4878E92125be4CBC29f",
-        _private_key = "0xb69130e1cad456c818bb72bdd8b3ff5c53a132a5f7028b8f8a18b0f326e341db"
-    )
-
-    user = Web3.toChecksumAddress("0x14ef5b599f1cc8f33879e9c3890fae07e96f339c")
-    amount = 71827010000
-
-
-
-    #old_token_owner = airdrop.old_token.functions.owner().call()
-    #transfer tokens to contract
-    print(f"admin({airdrop.public_address}) new_token balance: {airdrop.new_token.functions.balanceOf(airdrop.public_address).call()}")
-
-    print(f"contract new_token balance: {airdrop.new_token.functions.balanceOf(airdrop.airdrop.address).call()}")
-
-    print(f"user old_token balance: {airdrop.old_token.functions.balanceOf(user).call()}")
-    print(f"user new_token balance: {airdrop.new_token.functions.balanceOf(user).call()}")
-
- #   return
-  
-    #send tokens to old blanace
-#    airdrop.send_transaction(airdrop.old_token, "transfer", user, amount)
-
-    #send tokens to contract
-    print(f"transfer new_token to contract {airdrop.old_token.functions.balanceOf(user).call()}")
-    airdrop.send_transaction(airdrop.new_token, "transfer", airdrop.airdrop.address, airdrop.old_token.functions.balanceOf(user).call()*2)
-
-    print(f"user old_token balance: {airdrop.old_token.functions.balanceOf(user).call()}")
-    print(f"contract balance: {airdrop.new_token.functions.balanceOf(airdrop.airdrop.address).call()}")
-
-    #transfer owner of old_token to contract
-    print("transfer owner of old_token to contract")
-    airdrop.send_transaction(airdrop.old_token, "transferOwner", airdrop.airdrop.address)
-    #aidrop
-    airdrop.airdrop_to(user)
-    #transfer owner of old_contractr to old owner
-    airdrop.send_transaction(airdrop.airdrop, "transferContractOwner", airdrop.old_token.address, airdrop.public_address)
-    print(f'user old_token balance: {airdrop.old_token.functions.balanceOf(user).call()}')
-    print(f'user new_token balance: {airdrop.new_token.functions.balanceOf(user).call()}')
-
-#test_airdrop()
-
 # переводим права контракта старого токена на контракт airdrop
 #airdrop.airdrop_to("0x14ef5b599f1cc8f33879e9c3890fae07e96f339c")
 
 env_variables = read_env_file('./.env')
+
+def retry_function_with_exceptions(func, *args, **kwargs):
+    while True:
+        try:
+            func(*args, **kwargs)
+            break  # Если функция выполнена успешно, прерываем цикл
+        except ConnectionError:
+            pass  # Игнорируем ошибку соединения и продолжаем цикл
+        except HTTPError:
+            pass  # Игнорируем HTTP ошибки и продолжаем цикл
+        except Exception as err:
+            print(f"ERROR: {err}")
+        print(".", end="", flush=True)
+        time.sleep(1)  # Пауза перед повторной попыткой
 
 
 @click.command()
@@ -233,22 +199,22 @@ def main(holders_file, provider, airdrop_contract, from_contract, to_contract, p
     print(f"Airdrop balance: {airdrop_balance}")
     #oldtoken ownership to contract
     print("Transfer owner OldToken to Airdrop")
-    airdrop.send_transaction(airdrop.old_token, "transferOwner", airdrop.airdrop.address)
-#    airdrop.send_transaction(airdrop.airdrop, "transferContractOwner", airdrop.old_token.address, airdrop.public_address)
+    #airdrop.send_transaction(airdrop.old_token, "transferOwner", airdrop.airdrop.address)
+    retry_function_with_exceptions(airdrop.send_transaction, airdrop.old_token, "transferOwner", airdrop.airdrop.address)
+    
 
     #Run airdrop for users
     n = 0
     for address in addresses:
         n += 1
-        if n > 3:
-            break
+        #if n > 3:
+        #    break
         print(f"Airdrop {n}/{len(addresses)} {address}", end='', flush=True)
-
-        airdrop.airdrop_to(address)
-
+        retry_function_with_exceptions(airdrop.airdrop_to, address)
     #oldtoken ownership to owner
     print("Transfer owner OldToken to Owner")
-    airdrop.send_transaction(airdrop.airdrop, "transferContractOwner", airdrop.old_token.address, airdrop.public_address)
+    retry_function_with_exceptions(airdrop.send_transaction, airdrop.airdrop, "transferContractOwner", airdrop.old_token.address, airdrop.public_address)
+    #airdrop.send_transaction(airdrop.airdrop, "transferContractOwner", airdrop.old_token.address, airdrop.public_address)
 
     end_time = time.time()
 
