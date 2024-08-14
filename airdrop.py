@@ -84,7 +84,8 @@ class Airdrop:
 
     def send_transaction(self, contract, func_name, *args):
         if self.nonce is None:
-            self.nonce = self.web3.eth.getTransactionCount(self.public_address)           
+            self.nonce = int(self.web3.eth.getTransactionCount(self.public_address))
+
 
         nonce = self.nonce
         
@@ -116,7 +117,6 @@ class Airdrop:
         if user_balance_old > 0:
             user_balance_new = self.new_token.functions.balanceOf(_address).call()
 
-            nonce = self.web3.eth.getTransactionCount(self.public_address)
 
             print(f"... balances before: {user_balance_old}/{user_balance_new}", end='', flush=True)
 
@@ -163,7 +163,7 @@ def retry_function_with_exceptions(func, *args, **kwargs):
 @click.command()
 
 @click.option('--holders_file', prompt='CSV file path with holders', default='holders.csv', help='The path to the CSV file.')
-@click.option('--provider', prompt='Blockchain RPC endpoint', default='http://127.0.0.1:8545', help='The url of RPC-provider')
+@click.option('--provider', prompt='Blockchain RPC endpoint', default=env_variables.get('ENDPOINT', 'http://127.0.0.1:8545'), help='The url of RPC-provider')
 @click.option('--airdrop_contract', prompt='Airdrop contract', default=env_variables.get('AIRDROP_CONTRACT'), help='The address of Airdrop contract.')
 @click.option('--from_contract', prompt='Old Token address (for burn)', default=env_variables.get('OLD_TOKEN_CONTRACT'), help='The address of the Old Token contract. (for burn)')
 @click.option('--to_contract', prompt='New Token address (for airdrop)', default=env_variables.get('NEW_TOKEN_CONTRACT'), help='The address of the New Token contract. (for airdrop)')
