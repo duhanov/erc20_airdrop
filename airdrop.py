@@ -96,7 +96,7 @@ class Airdrop:
             transaction = getattr(contract.functions, func_name)(*args).buildTransaction({
                 'nonce': nonce,
                 'from':self.public_address,
-                'gasPrice': gas_price
+                'gasPrice': int(gas_price * 1.5)
             })
             signed_tx = self.web3.eth.account.signTransaction(transaction, private_key=self.private_key)
             tx_hash = self.web3.eth.sendRawTransaction(signed_tx.rawTransaction)
@@ -105,7 +105,7 @@ class Airdrop:
             logger.error(f'{self.contract_names[contract.address]}.{func_name}{args}: {error_message} from: {self.public_address}')
 
         if tx_hash:
-            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash, {'timeout': 240000})
             #print(f'{self.contract_names[contract.address]}.{func_name}{args}: Transaction {tx_hash.hex()}')
             return tx_hash
         return None
